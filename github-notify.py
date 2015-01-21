@@ -23,11 +23,13 @@ import requests
 
 from github import Github
 
+JSON_CACHE=os.path.expanduser('~/github-notify/github-notify.json')
 
 def get_config():
     config_files = (
         './github-notify.yaml',
         os.path.expanduser('~/.github-notify.yaml'),
+        os.path.expanduser('~/github-notify/github-notify.yaml'),
         '/etc/github-notify.yaml'
     )
     for config_file in config_files:
@@ -42,35 +44,30 @@ def get_config():
     raise SystemExit('Config file not found at: %s' % ', '.join(config_files))
 
 
-def alert(config, item, known, repo):
+def alert(found, config, item, known, repo):
     if repo not in known:
         known[repo] = []
     known[repo].append(item.number)
-    return requests.post(
-        'https://api.mailgun.net/v2/%s/messages' % config['mailgun_domain'],
-        auth=('api', config['mailgun_api_key']),
-        data={
-            'from': config['email_from'],
-            'to': config['email_to'],
-            'subject': config.get('email_subject', 'ALERT: New GitHub Issue'),
-            'text': ('URL: %s\nTitle: %s\nUser: %s' %
-                     (item.html_url, item.title, item.user.login))
-        }
-    )
+    print('\tFound in: %s\n\tURL: %s\n\tTitle: %s\n\tUser: %s' %
+                     (found, item.html_url, item.title, item.user.login))
 
 
 def scan_github_issues(config):
     pattern = re.compile(config['regex_pattern'], flags=re.I)
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     try:
-        with open('github-notify.json') as f:
+        with open(JSON_CACHE) as f:
             known = json.load(f)
     except IOError, ValueError:
         known = {}
 
-    g = Github(client_id=config['github_client_id'],
-               client_secret=config['github_client_secret'],
-               per_page=100)
+    if "github_username" in config and "github_password" in config:
+        g = Github(config["github_username"], config["github_password"],
+                   per_page=100)
+    elif "client_id" in config and "client_secret" in config:
+        g = Github(client_id=config["github_client_id"],
+                   client_secret=config["github_client_secret"],
+                   per_page=100)
 
     if not isinstance(config['github_repository'], list):
         repos = [config['github_repository']]
@@ -78,56 +75,28 @@ def scan_github_issues(config):
         repos = config['github_repository']
 
     for repo_name in repos:
+        print "=> fetching repo:", repo_name
         repo = g.get_repo(repo_name)
 
-        for pull in repo.get_pulls():
+        for pull in repo.get_pulls(state=config['github_state']):
             if pull.number in known.get(repo_name, []):
                 continue
 
             try:
-                if pattern.search(pull.title):
-                    alert(config, pull, known, repo_name)
+                if pattern.search(pull.title) and pull.title.find(config['skip_string']) == -1:
+                    alert('pull.title', config, pull, known, repo_name)
                     continue
             except TypeError:
                 pass
 
             try:
-                if pattern.search(pull.body):
-                    alert(config, pull, known, repo_name)
+                if pattern.search(pull.body) and pull.body.find(config['skip_string']) == -1:
+                    alert('pull.body', config, pull, known, repo_name)
                     continue
             except TypeError:
                 pass
 
-            for pull_file in pull.get_files():
-                if pattern.search(pull_file.filename):
-                    alert(config, pull, known, repo_name)
-                    break
-
-            for comment in pull.get_comments():
-                try:
-                    if pattern.search(comment.body):
-                        alert(config, pull, known, repo_name)
-                        break
-                except TypeError:
-                    pass
-
-            for commit in pull.get_commits():
-                try:
-                    if pattern.search(commit.commit.message):
-                        alert(config, pull, known, repo_name)
-                        break
-                except TypeError:
-                    pass
-
-            for comment in pull.get_issue_comments():
-                try:
-                    if pattern.search(comment.body):
-                        alert(config, pull, known, repo_name)
-                        break
-                except TypeError:
-                    pass
-
-        for issue in repo.get_issues():
+        for issue in repo.get_issues(state=config['github_state']):
             if issue.number in known.get(repo_name, []):
                 continue
 
@@ -135,29 +104,22 @@ def scan_github_issues(config):
                 continue
 
             try:
-                if pattern.search(issue.title):
-                    alert(config, issue, known, repo_name)
+                if pattern.search(issue.title) and issue.title.find(config['skip_string']) == -1:
+                    alert('issue.title', config, issue, known, repo_name)
                     continue
             except TypeError:
                 pass
 
             try:
-                if pattern.search(issue.body):
-                    alert(config, issue, known, repo_name)
+                if pattern.search(issue.body) and issue.body.find(config['skip_string']) == -1:
+                    alert('issue.body', config, issue, known, repo_name)
                     continue
             except TypeError:
                 pass
 
-            for comment in issue.get_comments():
-                try:
-                    if pattern.search(comment.body):
-                        alert(config, issue, known, repo_name)
-                        break
-                except TypeError:
-                    pass
 
     try:
-        with open('github-notify.json', 'w+') as f:
+        with open(JSON_CACHE, 'w+') as f:
             json.dump(known, f, indent=4, sort_keys=True)
     except (IOError, ValueError):
         pass
