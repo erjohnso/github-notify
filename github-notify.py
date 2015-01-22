@@ -48,11 +48,12 @@ def alert(found, config, item, known, repo):
     if repo not in known:
         known[repo] = []
     known[repo].append(item.number)
-    print('\tFound in: %s\n\tURL: %s\n\tTitle: %s\n\tUser: %s' %
-                     (found, item.html_url, item.title, item.user.login))
+    return '\tFound in: %s\n\tURL: %s\n\tTitle: %s\n\tUser: %s' % (
+            found, item.html_url, item.title, item.user.login)
 
 
 def scan_github_issues(config):
+    output = {}
     pattern = re.compile(config['regex_pattern'], flags=re.I)
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     try:
@@ -75,7 +76,6 @@ def scan_github_issues(config):
         repos = config['github_repository']
 
     for repo_name in repos:
-        print "=> fetching repo:", repo_name
         repo = g.get_repo(repo_name)
 
         for pull in repo.get_pulls(state=config['github_state']):
@@ -84,14 +84,20 @@ def scan_github_issues(config):
 
             try:
                 if pattern.search(pull.title) and pull.title.find(config['skip_string']) == -1:
-                    alert('pull.title', config, pull, known, repo_name)
+                    if repo_name in output:
+                        output[repo_name].append(alert('pull.title', config, pull, known, repo_name))
+                    else:
+                        output[repo_name] = [alert('pull.title', config, pull, known, repo_name)]
                     continue
             except TypeError:
                 pass
 
             try:
                 if pattern.search(pull.body) and pull.body.find(config['skip_string']) == -1:
-                    alert('pull.body', config, pull, known, repo_name)
+                    if repo_name in output:
+                        output[repo_name].append(alert('pull.body', config, pull, known, repo_name))
+                    else:
+                        output[repo_name] = [alert('pull.body', config, pull, known, repo_name)]
                     continue
             except TypeError:
                 pass
@@ -105,24 +111,35 @@ def scan_github_issues(config):
 
             try:
                 if pattern.search(issue.title) and issue.title.find(config['skip_string']) == -1:
-                    alert('issue.title', config, issue, known, repo_name)
+                    if repo_name in output:
+                        output[repo_name].append(alert('issue.title', config, issue, known, repo_name))
+                    else:
+                        output[repo_name] = [alert('issue.title', config, issue, known, repo_name)]
                     continue
             except TypeError:
                 pass
 
             try:
                 if pattern.search(issue.body) and issue.body.find(config['skip_string']) == -1:
-                    alert('issue.body', config, issue, known, repo_name)
+                    if repo_name in output:
+                        output[repo_name].append(alert('issue.body', config, issue, known, repo_name))
+                    else:
+                        output[repo_name] = [alert('issue.body', config, issue, known, repo_name)]
                     continue
             except TypeError:
                 pass
 
+    for repo_name in output:
+        print "=> repo_name"
+        print output[repo_name].join("\n\t")
+        print
 
-    try:
-        with open(JSON_CACHE, 'w+') as f:
-            json.dump(known, f, indent=4, sort_keys=True)
-    except (IOError, ValueError):
-        pass
+    if output:
+        try:
+            with open(JSON_CACHE, 'w+') as f:
+                json.dump(known, f, indent=4, sort_keys=True)
+        except (IOError, ValueError):
+            pass
 
 
 def main():
