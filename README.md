@@ -37,7 +37,7 @@ github_repository:
     - 'ansible/ansible-modules-core'
     - 'ansible/ansible-modules-extras'
     - 'saltstack/salt'
-    - 'opscode/knife-google'
+    - 'chef/knife-google'
     - 'puppetlabs/puppetlabs-gce_compute'
     - 'mitchellh/vagrant-google'
     - 'mitchellh/packer'

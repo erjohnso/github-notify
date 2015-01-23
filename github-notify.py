@@ -76,7 +76,12 @@ def scan_github_issues(config):
         repos = config['github_repository']
 
     for repo_name in repos:
-        repo = g.get_repo(repo_name)
+        try:
+            repo = g.get_repo(repo_name)
+        except Exception as e:
+            print "Error fetching repo: '%s'" % repo_name
+            print e
+            continue
 
         for pull in repo.get_pulls(state=config['github_state']):
             if pull.number in known.get(repo_name, []):
@@ -130,8 +135,8 @@ def scan_github_issues(config):
                 pass
 
     for repo_name in output:
-        print "=> repo_name"
-        print output[repo_name].join("\n\t")
+        print "=>", repo_name
+        print "\n\t".join(output[repo_name])
         print
 
     if output:
