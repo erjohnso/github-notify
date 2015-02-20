@@ -53,5 +53,5 @@ docs/_build/
 # PyBuilder
 target/
 
-github-notify.yaml
-github-notify.json
+*.yaml
+*.json

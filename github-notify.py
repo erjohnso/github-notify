@@ -20,26 +20,29 @@ import re
 import json
 import yaml
 import requests
+import argparse
 
 from github import Github
 
-JSON_CACHE=os.path.expanduser('~/github-notify/github-notify.json')
 
-def get_config():
-    config_files = (
-        './github-notify.yaml',
-        os.path.expanduser('~/.github-notify.yaml'),
-        os.path.expanduser('~/github-notify/github-notify.yaml'),
-        '/etc/github-notify.yaml'
-    )
-    for config_file in config_files:
-        try:
-            with open(os.path.realpath(config_file)) as f:
-                config = yaml.load(f)
-        except:
-            pass
-        else:
-            return config
+def get_config(path=None):
+    if path is None:
+        config_files = (
+            './github-notify.yaml',
+            os.path.expanduser('~/.github-notify.yaml'),
+            os.path.expanduser('~/github-notify/github-notify.yaml'),
+            '/etc/github-notify.yaml'
+        )
+        for config_file in config_files:
+            try:
+                with open(os.path.realpath(config_file)) as f:
+                    config = yaml.load(f)
+            except:
+                pass
+            else:
+                return config
+    with open(os.path.realpath(path)) as f:
+        return yaml.load(path)
 
     raise SystemExit('Config file not found at: %s' % ', '.join(config_files))
 
@@ -52,12 +55,12 @@ def alert(found, config, item, known, repo):
             found, item.html_url, item.title, item.user.login)
 
 
-def scan_github_issues(config):
+def scan_github_issues(config, cache):
     output = {}
     pattern = re.compile(config['regex_pattern'], flags=re.I)
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     try:
-        with open(JSON_CACHE) as f:
+        with open(cache) as f:
             known = json.load(f)
     except IOError, ValueError:
         known = {}
@@ -141,15 +144,19 @@ def scan_github_issues(config):
 
     if output:
         try:
-            with open(JSON_CACHE, 'w+') as f:
+            with open(cache, 'w+') as f:
                 json.dump(known, f, indent=4, sort_keys=True)
         except (IOError, ValueError):
             pass
 
-
-def main():
-    scan_github_issues(get_config())
-
-
 if __name__ == '__main__':
-    main()
+    p = argparse.ArgumentParser()
+    p.add_argument("--config", help="path to YAML config file", default=None)
+    p.add_argument("--cache", help="path to JSON cache file", default=None)
+    args = p.parse_args()
+
+    if args.cache is None:
+        args.cache = os.path.expanduser('~/github-notify/github-notify.json')
+
+    scan_github_issues(get_config(args.config), args.cache)
+

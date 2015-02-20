@@ -1,0 +1,17 @@
+---
+github_username: 'erjohnso'
+github_password: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+# github_client_id: ''
+# github_client_secret: ''
+
+github_repository:
+    - 'apache/libcloud'
+    - 'jclouds/jclouds-labs-google'
+    - 'fog/fog'
+    - 'ansible/ansible'
+    - 'ansible/ansible-modules-core'
+    - 'ansible/ansible-modules-extras'
+
+regex_pattern: 'gce|gcs|google'
+skip_string: '.google.com/'
+github_state: 'open'
