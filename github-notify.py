@@ -42,7 +42,7 @@ def get_config(path=None):
             else:
                 return config
     with open(os.path.realpath(path)) as f:
-        return yaml.load(path)
+        return yaml.load(f)
 
     raise SystemExit('Config file not found at: %s' % ', '.join(config_files))
 
