@@ -51,7 +51,7 @@ def alert(found, config, item, known, repo):
     if repo not in known:
         known[repo] = []
     known[repo].append(item.number)
-    return '\tFound in: %s\n\tURL: %s\n\tTitle: %s\n\tUser: %s' % (
+    return 'Found in: %s\n\tURL: %s\n\tTitle: %s\n\tUser: %s\n' % (
             found, item.html_url, item.title, item.user.login)
 
 
@@ -114,7 +114,11 @@ def scan_github_issues(config, cache):
             if issue.number in known.get(repo_name, []):
                 continue
 
-            if issue.pull_request is not None:
+            try:
+                if issue.pull_request is not None:
+                    continue
+            except Exception as e:
+                print "Error '%s' with repo/issue: %s/%s" % (str(e), repo_name, issue.number)
                 continue
 
             try:
@@ -138,8 +142,8 @@ def scan_github_issues(config, cache):
                 pass
 
     for repo_name in output:
-        print "=>", repo_name
-        print "\n\t".join(output[repo_name])
+        print "# Repo:", repo_name
+        print "\t" + u"\n\t".join(output[repo_name]).encode('utf-8')
         print
 
     if output:
@@ -156,7 +160,7 @@ if __name__ == '__main__':
     args = p.parse_args()
 
     if args.cache is None:
-        args.cache = os.path.expanduser('~/github-notify/github-notify.json')
+        args.cache = os.path.expanduser('~/github-notify/cache.json')
 
     scan_github_issues(get_config(args.config), args.cache)
 
