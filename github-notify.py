@@ -55,7 +55,7 @@ def alert(found, config, item, known, repo):
             found, item.html_url, item.title, item.user.login)
 
 
-def scan_github_issues(config, cache):
+def scan_github_issues(config, cache, ignoref):
     output = {}
     pattern = re.compile(config['regex_pattern'], flags=re.I)
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -64,6 +64,11 @@ def scan_github_issues(config, cache):
             known = json.load(f)
     except IOError, ValueError:
         known = {}
+    try:
+        with open(ignoref) as f:
+            ignore = json.load(f)
+    except IOError, ValueError:
+        ignore = {}
 
     if "github_username" in config and "github_password" in config:
         g = Github(config["github_username"], config["github_password"],
@@ -89,6 +94,8 @@ def scan_github_issues(config, cache):
         for pull in repo.get_pulls(state=config['github_state']):
             if pull.number in known.get(repo_name, []):
                 continue
+            if pull.number in ignore.get(repo_name, []):
+                continue
 
             try:
                 if pattern.search(pull.title) and pull.title.find(config['skip_string']) == -1:
@@ -112,6 +119,8 @@ def scan_github_issues(config, cache):
 
         for issue in repo.get_issues(state=config['github_state']):
             if issue.number in known.get(repo_name, []):
+                continue
+            if issue.number in ignore.get(repo_name, []):
                 continue
 
             try:
@@ -157,10 +166,13 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument("--config", help="path to YAML config file", default=None)
     p.add_argument("--cache", help="path to JSON cache file", default=None)
+    p.add_argument("--ignore", help="path to JSON ignore file", default=None)
     args = p.parse_args()
 
     if args.cache is None:
         args.cache = os.path.expanduser('~/github-notify/cache.json')
+    if args.ignore is None:
+        args.ignore = os.path.expanduser('~/github-notify/ignore.json')
 
-    scan_github_issues(get_config(args.config), args.cache)
+    scan_github_issues(get_config(args.config), args.cache, args.ignore)
 
